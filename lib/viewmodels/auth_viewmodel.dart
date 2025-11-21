@@ -15,6 +15,24 @@ class AuthViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   AppUser? get currentUser => _currentUser;
 
+  // Nova propriedade para verificar se é admin
+  bool get isAdmin {
+    if (_currentUser == null) return false;
+    
+    // Verifica se o usuário tem role de admin
+    if (_currentUser!.role == 'admin') return true;
+    
+    // Verifica por email específico (para desenvolvimento/backup)
+    final userEmail = _currentUser!.email.toLowerCase();
+    final adminEmails = [
+      'admin@tercafeira.com',
+      'administrador@tercafeira.com',
+      'admin@coletocerta.com',
+    ];
+    
+    return adminEmails.contains(userEmail) || userEmail.contains('admin');
+  }
+
   Future<User?> login(String email, String password) async {
     try {
       _setLoading(true);
@@ -87,6 +105,42 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  // Método para promover usuário a admin
+  Future<void> promoteToAdmin(String email) async {
+    try {
+      await _firestore.collection('users').doc(email).update({
+        'role': 'admin',
+      });
+      
+      // Se for o usuário atual, atualiza localmente
+      if (_currentUser?.email == email ) {
+        _currentUser = _currentUser?.copyWith(
+          role: 'admin',
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      _errorMessage = 'Erro ao promover usuário: $e';
+      notifyListeners();
+    }
+  }
+
+  // Método para verificar permissões específicas
+  bool hasPermission(String permission) {
+    if (!isAdmin) return false;
+    
+    // Aqui você pode adicionar lógica mais complexa de permissões
+    switch (permission) {
+      case 'manage_points':
+      case 'manage_users':
+      case 'view_reports':
+      case 'register_collection_points':
+        return isAdmin;
+      default:
+        return false;
+    }
+  }
+
   Future<void> addCollection() async {
     try {
       if (_currentUser == null) return;
@@ -127,7 +181,7 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  // Métodos privados de gamificação (anteriormente no GamificationService)
+  // Métodos privados de gamificação
   int _calculateCollectionPoints({
     DateTime? lastCollectionDate,
     required DateTime currentDate,
@@ -180,7 +234,7 @@ class AuthViewModel extends ChangeNotifier {
           break;
         case 'eco_explorer':
           // Este seria conquistado por participação em eventos
-          // Por enquanto, pode ser baseado em coletas também
+          // Por enquanto, baseado em coletas
           earned = totalCollections >= 30;
           break;
       }
