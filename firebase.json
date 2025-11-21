@@ -1,0 +1,25 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "coletafacil-4532f",
+          "appId": "1:794924891841:android:6770c291cdb752bbc2de40",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "coletafacil-4532f",
+          "configurations": {
+            "android": "1:794924891841:android:6770c291cdb752bbc2de40",
+            "ios": "1:794924891841:ios:0ef87b7917371738c2de40",
+            "macos": "1:794924891841:ios:0ef87b7917371738c2de40",
+            "web": "1:794924891841:web:cd67249a0f98b8d2c2de40",
+            "windows": "1:794924891841:web:60d3f2fed0b6e263c2de40"
+          }
+        }
+      }
+    }
+  }
+}

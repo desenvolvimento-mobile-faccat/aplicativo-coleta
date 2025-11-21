@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "794924891841",
+    "project_id": "coletafacil-4532f",
+    "storage_bucket": "coletafacil-4532f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:794924891841:android:6770c291cdb752bbc2de40",
+        "android_client_info": {
+          "package_name": "com.example.tercafeira"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClfrsfdU2aIofs8DMz0Vc1gKY7heJ3kpw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
