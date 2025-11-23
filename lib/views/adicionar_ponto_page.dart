@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/ponto_coleta.dart';
-
 
 class AdicionarPontoPage extends StatefulWidget {
   const AdicionarPontoPage({super.key});
@@ -22,6 +22,7 @@ class _AdicionarPontoPageState extends State<AdicionarPontoPage> {
   GoogleMapController? _mapController;
   LatLng? _localizacaoSelecionada;
   final List<String> _tiposSelecionados = [];
+  bool _salvando = false;
 
   final List<Map<String, dynamic>> _tiposLixo = [
     {'nome': 'Orgânico', 'icone': Icons.eco, 'cor': Colors.brown},
@@ -45,93 +46,112 @@ class _AdicionarPontoPageState extends State<AdicionarPontoPage> {
         _localizacaoSelecionada = LatLng(position.latitude, position.longitude);
       });
     } catch (e) {
-      // Localização padrão se falhar (Porto Alegre)
       setState(() {
         _localizacaoSelecionada = const LatLng(-30.0346, -51.2177);
       });
     }
   }
 
-  Future<void> _salvarPonto() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  // No método _salvarPonto do AdicionarPontoPage, use esta versão SIMPLES:
 
-    if (_tiposSelecionados.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecione pelo menos um tipo de material aceito'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_localizacaoSelecionada == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecione a localização no mapa'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // Mostrar loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+Future<void> _salvarPonto() async {
+  if (!_formKey.currentState!.validate()) return;
+  if (_tiposSelecionados.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Selecione pelo menos um tipo de material aceito')),
     );
+    return;
+  }
+  if (_localizacaoSelecionada == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Selecione a localização no mapa')),
+    );
+    return;
+  }
 
-    // Criar objeto PontoColeta
+  setState(() => _salvando = true);
+
+  try {
     final novoPonto = PontoColeta(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      nome: _nomeController.text,
-      endereco: _enderecoController.text,
+      nome: _nomeController.text.trim(),
+      endereco: _enderecoController.text.trim(),
       latitude: _localizacaoSelecionada!.latitude,
       longitude: _localizacaoSelecionada!.longitude,
       tiposAceitos: _tiposSelecionados,
-      telefone: _telefoneController.text.isEmpty ? null : _telefoneController.text,
-      horarioFuncionamento: _horarioController.text.isEmpty ? null : _horarioController.text,
-      observacoes: _observacoesController.text.isEmpty ? null : _observacoesController.text,
+      telefone: _telefoneController.text.isEmpty ? null : _telefoneController.text.trim(),
+      horarioFuncionamento: _horarioController.text.isEmpty ? null : _horarioController.text.trim(),
+      observacoes: _observacoesController.text.isEmpty ? null : _observacoesController.text.trim(),
       dataCriacao: DateTime.now(),
+      ativo: true,
     );
 
-    // AQUI VOCÊ SALVARIA NO FIREBASE/BACKEND
-    // Exemplo: await FirebaseFirestore.instance.collection('pontos_coleta').add(novoPonto.toMap());
-    
-    await Future.delayed(const Duration(seconds: 2)); // Simular salvamento
+    await FirebaseFirestore.instance
+        .collection('pontos_coleta')
+        .doc(novoPonto.id)
+        .set(novoPonto.toMap());
 
+    // ✅ CORREÇÃO: Snackbar simples sem diálogos
     if (mounted) {
-      Navigator.pop(context); // Fechar loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ponto "${novoPonto.nome}" salvo com sucesso!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      
+      // Limpa o formulário mas fica na mesma página
+      _limparFormulario();
+    }
 
-      // Mostrar sucesso
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 32),
-              SizedBox(width: 12),
-              Text('Sucesso!'),
-            ],
-          ),
-          content: const Text('Ponto de coleta adicionado com sucesso!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Fechar diálogo
-                Navigator.pop(context); // Voltar para tela anterior
-              },
-              child: const Text('OK'),
-            ),
-          ],
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao salvar: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }
+  } finally {
+    if (mounted) {
+      setState(() => _salvando = false);
+    }
+  }
+}
+  void _limparFormulario() {
+    _nomeController.clear();
+    _enderecoController.clear();
+    _telefoneController.clear();
+    _horarioController.clear();
+    _observacoesController.clear();
+    setState(() {
+      _tiposSelecionados.clear();
+    });
+  }
 
-    print('Ponto salvo: ${novoPonto.toMap()}');
+  // ✅ NOVO MÉTODO: Centralizar mapa na localização atual
+  Future<void> _centralizarNaMinhaLocalizacao() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition();
+      final novaLocalizacao = LatLng(position.latitude, position.longitude);
+      
+      setState(() {
+        _localizacaoSelecionada = novaLocalizacao;
+      });
+      
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLng(novaLocalizacao),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao obter localização: $e'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
 
   @override
@@ -180,12 +200,24 @@ class _AdicionarPontoPageState extends State<AdicionarPontoPage> {
                     Icon(Icons.admin_panel_settings, color: Colors.orange[700]),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Área Administrativa',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange[900],
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Área Administrativa',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[900],
+                            ),
+                          ),
+                          Text(
+                            'Os pontos adicionados aparecerão no mapa para todos os usuários',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -365,33 +397,54 @@ class _AdicionarPontoPageState extends State<AdicionarPontoPage> {
                 borderRadius: BorderRadius.circular(12),
                 child: _localizacaoSelecionada == null
                     ? const Center(child: CircularProgressIndicator())
-                    : GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: _localizacaoSelecionada!,
-                          zoom: 15,
-                        ),
-                        markers: _localizacaoSelecionada != null
-                            ? {
-                                Marker(
-                                  markerId: const MarkerId('ponto'),
-                                  position: _localizacaoSelecionada!,
-                                  draggable: true,
-                                  onDragEnd: (newPosition) {
-                                    setState(() {
-                                      _localizacaoSelecionada = newPosition;
-                                    });
-                                  },
-                                ),
-                              }
-                            : {},
-                        onTap: (position) {
-                          setState(() {
-                            _localizacaoSelecionada = position;
-                          });
-                        },
-                        onMapCreated: (controller) {
-                          _mapController = controller;
-                        },
+                    : Stack(
+                        children: [
+                          GoogleMap(
+                            initialCameraPosition: CameraPosition(
+                              target: _localizacaoSelecionada!,
+                              zoom: 15,
+                            ),
+                            markers: _localizacaoSelecionada != null
+                                ? {
+                                    Marker(
+                                      markerId: const MarkerId('ponto'),
+                                      position: _localizacaoSelecionada!,
+                                      draggable: true,
+                                      onDragEnd: (newPosition) {
+                                        setState(() {
+                                          _localizacaoSelecionada = newPosition;
+                                        });
+                                      },
+                                    ),
+                                  }
+                                : {},
+                            onTap: (position) {
+                              setState(() {
+                                _localizacaoSelecionada = position;
+                              });
+                            },
+                            onMapCreated: (controller) {
+                              _mapController = controller;
+                            },
+                            // ✅ CORREÇÃO: Tornar o mapa interativo
+                            scrollGesturesEnabled: true,
+                            zoomGesturesEnabled: true,
+                            rotateGesturesEnabled: true,
+                            tiltGesturesEnabled: true,
+                            myLocationEnabled: true,
+                            myLocationButtonEnabled: false, // Vamos usar nosso próprio botão
+                          ),
+                          // ✅ BOTÃO PARA CENTRALIZAR NA LOCALIZAÇÃO ATUAL
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: FloatingActionButton(
+                              mini: true,
+                              onPressed: _centralizarNaMinhaLocalizacao,
+                              child: const Icon(Icons.my_location),
+                            ),
+                          ),
+                        ],
                       ),
               ),
             ),
@@ -414,14 +467,22 @@ class _AdicionarPontoPageState extends State<AdicionarPontoPage> {
 
             // Botão salvar
             ElevatedButton.icon(
-              onPressed: _salvarPonto,
-              icon: const Icon(Icons.save, size: 24),
-              label: const Text(
-                'Salvar Ponto de Coleta',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              onPressed: _salvando ? null : _salvarPonto,
+              icon: _salvando 
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save, size: 24),
+              label: _salvando
+                  ? const Text('Salvando...')
+                  : const Text(
+                      'Salvar Ponto de Coleta',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: _salvando ? Colors.grey : Colors.green,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(

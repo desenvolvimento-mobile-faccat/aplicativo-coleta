@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:geolocator/geolocator.dart';
-
+import './../../services/descarte_service.dart';
 
 class RelatarDescartePage extends StatefulWidget {
   const RelatarDescartePage({super.key});
@@ -15,11 +15,13 @@ class _RelatarDescartePageState extends State<RelatarDescartePage> {
   final _formKey = GlobalKey<FormState>();
   final _pesoController = TextEditingController();
   final _observacoesController = TextEditingController();
+  final DescarteService _descarteService = DescarteService();
   
   String? _tipoLixo;
   File? _imagemSelecionada;
   Position? _localizacao;
   bool _carregandoLocalizacao = false;
+  bool _registrandoDescarte = false;
   
   final List<Map<String, dynamic>> _tiposLixo = [
     {'nome': 'Orgânico', 'icone': Icons.eco, 'pontos': 5},
@@ -204,129 +206,166 @@ class _RelatarDescartePageState extends State<RelatarDescartePage> {
     }
 
     final pontos = _calcularPontos();
+    final peso = double.parse(_pesoController.text);
 
-    // Mostrar loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    setState(() {
+      _registrandoDescarte = true;
+    });
 
-    // Simular envio (aqui você implementaria o envio real para sua API/Firebase)
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      Navigator.pop(context); // Fechar loading
-      
-      // Mostrar sucesso
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 32),
-              SizedBox(width: 12),
-              Text('Parabéns!'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Seu descarte foi registrado com sucesso!',
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green[400]!, Colors.green[600]!],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.stars, color: Colors.amber, size: 32),
-                    const SizedBox(width: 12),
-                    Text(
-                      '+$pontos pontos',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.recycling, color: Colors.green[700], size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_pesoController.text} kg de $_tipoLixo',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    if (_imagemSelecionada != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                          children: [
-                            Icon(Icons.add_a_photo, color: Colors.green[700], size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Bônus de +10 pontos por foto',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Fechar diálogo
-                Navigator.pop(context); // Voltar para tela anterior
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
+    try {
+      // 🔥 REGISTRA NO FIREBASE E ATUALIZA PONTOS
+      await _descarteService.registrarDescarte(
+        tipo: _tipoLixo!,
+        peso: peso,
+        pontos: pontos,
+        observacoes: _observacoesController.text.trim().isEmpty 
+            ? null 
+            : _observacoesController.text.trim(),
+        imagemUrl: null, // Por enquanto sem upload de imagem
+        latitude: _localizacao!.latitude,
+        longitude: _localizacao!.longitude,
       );
-    }
 
-    // AQUI VOCÊ SALVARIA OS DADOS:
-    // final descarte = {
-    //   'tipo': _tipoLixo,
-    //   'peso': double.parse(_pesoController.text),
-    //   'observacoes': _observacoesController.text,
-    //   'imagem': _imagemSelecionada?.path,
-    //   'latitude': _localizacao.latitude,
-    //   'longitude': _localizacao.longitude,
-    //   'pontos': pontos,
-    //   'data': DateTime.now().toIso8601String(),
-    // };
+      setState(() {
+        _registrandoDescarte = false;
+      });
+
+      if (mounted) {
+        // Mostrar diálogo de sucesso
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 32),
+                SizedBox(width: 12),
+                Text('Parabéns!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Seu descarte foi registrado com sucesso!',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green[400]!, Colors.green[600]!],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.stars, color: Colors.amber, size: 32),
+                      const SizedBox(width: 12),
+                      Text(
+                        '+$pontos pontos',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.recycling, color: Colors.green[700], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$peso kg de $_tipoLixo',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      if (_imagemSelecionada != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.add_a_photo, color: Colors.green[700], size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Bônus de +10 pontos por foto',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Seus pontos foram atualizados!',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[900],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Fechar diálogo
+                  Navigator.pop(context); // Voltar para tela anterior
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _registrandoDescarte = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao registrar descarte: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -676,7 +715,7 @@ class _RelatarDescartePageState extends State<RelatarDescartePage> {
 
             // Botão registrar
             ElevatedButton(
-              onPressed: _registrarDescarte,
+              onPressed: _registrandoDescarte ? null : _registrarDescarte,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
@@ -686,20 +725,29 @@ class _RelatarDescartePageState extends State<RelatarDescartePage> {
                 ),
                 elevation: 2,
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle_outline, size: 24),
-                  SizedBox(width: 12),
-                  Text(
-                    'Registrar Descarte',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+              child: _registrandoDescarte
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'Registrar Descarte',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 16),
           ],
