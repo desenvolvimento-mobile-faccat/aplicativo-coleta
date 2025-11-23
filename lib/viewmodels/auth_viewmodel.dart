@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
@@ -10,6 +11,9 @@ class AuthViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   AppUser? _currentUser;
+  
+  // ✅ NOVO: Stream para ouvir mudanças em tempo real
+  StreamSubscription<DocumentSnapshot>? _userSubscription;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -33,12 +37,36 @@ class AuthViewModel extends ChangeNotifier {
     return adminEmails.contains(userEmail) || userEmail.contains('admin');
   }
 
+  // ✅ NOVO: Método para iniciar escuta em tempo real
+  void startListeningToUser(String uid) {
+    _userSubscription?.cancel(); // Cancela escuta anterior se existir
+    
+    _userSubscription = _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        _currentUser = AppUser.fromMap(snapshot.data()!);
+        notifyListeners();
+      }
+    });
+  }
+
+  // ✅ NOVO: Método para parar escuta
+  void stopListeningToUser() {
+    _userSubscription?.cancel();
+    _userSubscription = null;
+  }
+
   Future<User?> login(String email, String password) async {
     try {
       _setLoading(true);
       final user = await _authService.signIn(email, password);
       if (user != null) {
         await _loadUserProfile(user.uid);
+        // ✅ Inicia escuta em tempo real após login
+        startListeningToUser(user.uid);
       }
       return user;
     } catch (e) {
@@ -56,6 +84,8 @@ class AuthViewModel extends ChangeNotifier {
       if (user != null) {
         await _firestore.collection('users').doc(user.uid).set(userData.toFirestore());
         await _loadUserProfile(user.uid);
+        // ✅ Inicia escuta em tempo real após registro
+        startListeningToUser(user.uid);
       }
       return user;
     } catch (e) {
@@ -83,6 +113,8 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
+      // ✅ Para escuta antes de fazer logout
+      stopListeningToUser();
       await _authService.signOut();
       _currentUser = null;
       notifyListeners();
@@ -102,6 +134,14 @@ class AuthViewModel extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'Erro ao atualizar usuário: $e';
       notifyListeners();
+    }
+  }
+
+  // ✅ NOVO: Método para recarregar dados do usuário manualmente
+  Future<void> refreshUser() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await _loadUserProfile(uid);
     }
   }
 
@@ -256,5 +296,11 @@ class AuthViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+  
+  @override
+  void dispose() {
+    stopListeningToUser();
+    super.dispose();
   }
 }
