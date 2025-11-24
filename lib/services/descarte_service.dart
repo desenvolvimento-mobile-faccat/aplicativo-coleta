@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/descarte_model.dart';
 import '../models/user_model.dart';
+import '../helpers/achievement_helper.dart';
 
 class DescarteService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AchievementHelper _achievementHelper = AchievementHelper();
 
   /// Registra um novo descarte e atualiza os pontos do usuário
   Future<String> registrarDescarte({
@@ -38,7 +40,7 @@ class DescarteService {
 
       // Cria o descarte
       final descarte = Descarte(
-        id: '', // Será preenchido pelo Firestore
+        id: '',
         userId: currentUser.uid,
         userName: userName,
         tipo: tipo,
@@ -87,9 +89,26 @@ class DescarteService {
         });
       });
 
+      // ✅ CORREÇÃO: Verifica e desbloqueia conquistas após o descarte
+      await _checkAchievements(currentUser.uid);
+
       return descarteId;
     } catch (e) {
       throw Exception('Erro ao registrar descarte: $e');
+    }
+  }
+
+  /// Verifica e atualiza conquistas após registrar descarte
+  Future<List<Achievement>> _checkAchievements(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) return [];
+
+      final user = AppUser.fromMap(userDoc.data()!);
+      return await _achievementHelper.checkAfterDescarte(user: user);
+    } catch (e) {
+      print('❌ Erro ao verificar conquistas: $e');
+      return [];
     }
   }
 
@@ -253,7 +272,6 @@ class DescarteService {
 
       // Verifica se é o dono do descarte
       if (descarte.userId != currentUser.uid) {
-        // Verifica se é admin (implementar verificação)
         throw Exception('Sem permissão para deletar este descarte');
       }
 

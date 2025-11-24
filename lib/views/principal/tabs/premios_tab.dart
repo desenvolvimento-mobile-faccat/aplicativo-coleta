@@ -262,7 +262,7 @@ class _GamificacaoTabState extends State<GamificacaoTab> with SingleTickerProvid
                 crossAxisCount: 3,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 0.85,
+                childAspectRatio: 0.75, // Aumentado para dar mais altura
               ),
               itemCount: Achievement.all.length,
               itemBuilder: (context, index) {
@@ -455,11 +455,13 @@ class _GamificacaoTabState extends State<GamificacaoTab> with SingleTickerProvid
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        desbloqueada ? 'Desbloqueada!' : '$requiredPoints pontos necessários',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: desbloqueada ? Colors.green : Colors.grey[700],
+                      Flexible(
+                        child: Text(
+                          desbloqueada ? 'Desbloqueada!' : '$requiredPoints pontos necessários',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: desbloqueada ? Colors.green : Colors.grey[700],
+                          ),
                         ),
                       ),
                     ],
@@ -483,50 +485,55 @@ class _GamificacaoTabState extends State<GamificacaoTab> with SingleTickerProvid
         ),
         color: desbloqueada ? Colors.white : Colors.grey[200],
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Stack(
-                children: [
-                  Text(
-                    emoji,
-                    style: TextStyle(
-                      fontSize: 40,
-                      color: desbloqueada ? null : Colors.grey,
-                    ),
-                  ),
-                  if (!desbloqueada)
-                    Positioned.fill(
-                      child: Icon(
-                        Icons.lock,
-                        color: Colors.grey[600],
-                        size: 20,
+              Flexible(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      emoji,
+                      style: TextStyle(
+                        fontSize: 32,
+                        color: desbloqueada ? null : Colors.grey,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                titulo,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: desbloqueada ? Colors.black : Colors.grey,
+                    if (!desbloqueada)
+                      Icon(
+                        Icons.lock,
+                        color: Colors.grey[600],
+                        size: 18,
+                      ),
+                  ],
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
-              if (!desbloqueada)
+              Flexible(
+                child: Text(
+                  titulo,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: desbloqueada ? Colors.black : Colors.grey,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (!desbloqueada) ...[
+                const SizedBox(height: 2),
                 Text(
                   '${requiredPoints}pts',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     color: Colors.grey[500],
                   ),
                 ),
+              ],
             ],
           ),
         ),
@@ -549,47 +556,53 @@ class _GamificacaoTabState extends State<GamificacaoTab> with SingleTickerProvid
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: cor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.card_giftcard, color: cor, size: 32),
+              child: Icon(Icons.card_giftcard, color: cor, size: 28),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     titulo,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Text(
-                        '$pontosNecessarios pontos',
+                        '$pontosNecessarios pts',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           color: disponivel ? cor : Colors.grey,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       if (!disponivel) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '(faltam ${pontosNecessarios - pontosUsuario})',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '(faltam ${pontosNecessarios - pontosUsuario})',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -598,6 +611,7 @@ class _GamificacaoTabState extends State<GamificacaoTab> with SingleTickerProvid
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             ElevatedButton(
               onPressed: disponivel 
                 ? () {
@@ -613,9 +627,13 @@ class _GamificacaoTabState extends State<GamificacaoTab> with SingleTickerProvid
               style: ElevatedButton.styleFrom(
                 backgroundColor: disponivel ? Colors.blue : Colors.grey,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(70, 36),
               ),
-              child: Text(disponivel ? 'Resgatar' : 'Bloqueado'),
+              child: Text(
+                disponivel ? 'Resgatar' : 'Bloqueado',
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
           ],
         ),

@@ -73,17 +73,15 @@ class AppUser {
       'uf': uf,
       'role': role,
       'createdAt': createdAt != null
-          ? Timestamp.fromDate(createdAt!)
-          : FieldValue.serverTimestamp(),
+          ? createdAt!.toIso8601String()
+          : DateTime.now().toIso8601String(),
       'points': points,
       'level': level,
       'levelTitle': levelTitle,
       'totalCollections': totalCollections,
       // Salva apenas os IDs no Firestore
       'achievements': achievements.map((a) => a.id).toList(),
-      'lastCollectionDate': lastCollectionDate != null
-          ? Timestamp.fromDate(lastCollectionDate!)
-          : null,
+      'lastCollectionDate': lastCollectionDate?.toIso8601String(),
     };
   }
 
@@ -117,6 +115,25 @@ class AppUser {
       }
     }
 
+    // Parse das datas
+    DateTime? parsedCreatedAt;
+    if (map['createdAt'] != null) {
+      if (map['createdAt'] is Timestamp) {
+        parsedCreatedAt = (map['createdAt'] as Timestamp).toDate();
+      } else if (map['createdAt'] is String) {
+        parsedCreatedAt = DateTime.parse(map['createdAt']);
+      }
+    }
+
+    DateTime? parsedLastCollection;
+    if (map['lastCollectionDate'] != null) {
+      if (map['lastCollectionDate'] is Timestamp) {
+        parsedLastCollection = (map['lastCollectionDate'] as Timestamp).toDate();
+      } else if (map['lastCollectionDate'] is String) {
+        parsedLastCollection = DateTime.parse(map['lastCollectionDate']);
+      }
+    }
+
     return AppUser(
       name: map['name'] ?? '',
       email: map['email'] ?? '',
@@ -124,17 +141,13 @@ class AppUser {
       city: map['city'] ?? '',
       uf: map['uf'] ?? '',
       role: map['role'] ?? 'member',
-      createdAt: (map['createdAt'] is Timestamp)
-          ? (map['createdAt'] as Timestamp).toDate()
-          : null,
+      createdAt: parsedCreatedAt,
       points: points,
       level: calculatedLevel,
       levelTitle: calculatedTitle,
       totalCollections: map['totalCollections'] ?? 0,
       achievements: resolvedAchievements,
-      lastCollectionDate: (map['lastCollectionDate'] is Timestamp)
-          ? (map['lastCollectionDate'] as Timestamp).toDate()
-          : null,
+      lastCollectionDate: parsedLastCollection,
     );
   }
 
@@ -220,7 +233,7 @@ class Achievement {
       title: 'Primeira Coleta',
       emoji: '🌱',
       description: 'Realize sua primeira coleta!',
-      requiredPoints: 10,
+      requiredPoints: 0,
     ),
     Achievement(
       id: 'ten_collections',
