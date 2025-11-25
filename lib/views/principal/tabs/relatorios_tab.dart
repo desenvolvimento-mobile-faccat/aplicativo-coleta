@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 import '../../../services/descarte_service.dart';
 import 'package:intl/intl.dart';
+import '../../../models/descarte_model.dart'; 
 
 class RelatoriosTab extends StatefulWidget {
   const RelatoriosTab({super.key});
@@ -399,7 +400,7 @@ class _RelatoriosTabState extends State<RelatoriosTab> {
     );
   }
 
-  Widget _buildHistoricoCard(dynamic descarte) {
+  Widget _buildHistoricoCard(Descarte descarte) {
     final dataRegistro = descarte.dataRegistro as DateTime;
     final formatoData = DateFormat('dd/MM/yyyy HH:mm', 'pt_BR');
     
